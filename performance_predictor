@@ -1,0 +1,70 @@
+# Import required libraries
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Step 1: Load external dataset (upload 'student_data.csv' to Colab first)
+try:
+    data = pd.read_csv('/content/Students_Grading_Dataset.csv')
+    print("Dataset loaded successfully. First 5 rows:")
+    print(data.head())
+except FileNotFoundError:
+    print("Error: 'student_data.csv' not found. Please upload the file to Colab.")
+    raise
+
+# Step 2: Select features and target, map grades to numeric values
+required_columns = ['Attendance (%)', 'Midterm_Score', 'Study_Hours_per_Week', 'Grade']
+if not all(col in data.columns for col in required_columns):
+    print("Error: Dataset must contain 'Attendance (%)', 'Midterm_Score', 'Study_Hours_per_Week', 'Grade'.")
+    raise ValueError("Missing required columns")
+
+# Subset data and handle missing values
+data = data[required_columns].dropna()
+print(f"Rows after dropping missing values: {len(data)}")
+
+# Map grades: A=3, B=2, C=1, F=0
+grade_mapping = {'A': 3, 'B': 2, 'C': 1, 'F': 0}
+data['Grade'] = data['Grade'].map(grade_mapping)
+
+# Step 3: Preprocessing (normalize features to 0-1 range)
+data['Attendance (%)'] = (data['Attendance (%)'] - data['Attendance (%)'].min()) / (data['Attendance (%)'].max() - data['Attendance (%)'].min())
+data['Midterm_Score'] = (data['Midterm_Score'] - data['Midterm_Score'].min()) / (data['Midterm_Score'].max() - data['Midterm_Score'].min())
+data['Study_Hours_per_Week'] = (data['Study_Hours_per_Week'] - data['Study_Hours_per_Week'].min()) / (data['Study_Hours_per_Week'].max() - data['Study_Hours_per_Week'].min())
+
+# ... (your existing code) ...
+
+# Step 4: Split data into training (80%) and testing (20%) sets
+X = data[['Attendance (%)', 'Midterm_Score', 'Study_Hours_per_Week']]
+y = data['Grade']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Handle NaNs in y_train before fitting the model
+# Remove rows with NaNs in y_train
+train_data = pd.concat([X_train, y_train], axis=1)
+train_data.dropna(subset=['Grade'], inplace=True)  # Drop rows with NaNs in 'Grade' column (y_train)
+X_train = train_data[['Attendance (%)', 'Midterm_Score', 'Study_Hours_per_Week']]
+y_train = train_data['Grade']
+
+# Train Random Forest Classifier
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+
+
+def predict_grade(attendance, midterm_score, study_hours):
+    """Predict the grade based on user input."""
+    input_data = np.array([[attendance, midterm_score, study_hours]])
+    prediction = rf_model.predict(input_data)[0]
+    grade_mapping_reverse = {3: 'Good', 2: 'Average', 1: 'Poor', 0: 'Fail'}
+    return grade_mapping_reverse[prediction]
+
+# Example Usage
+attendance_input = float(input("Enter Attendance (%): ")) / 100
+midterm_input = float(input("Enter Midterm Score: ")) / 100
+study_hours_input = float(input("Enter Study Hours per Week: ")) / 100
+
+predicted_grade = predict_grade(attendance_input, midterm_input, study_hours_input)
+print(f"Predicted Grade: {predicted_grade}")
